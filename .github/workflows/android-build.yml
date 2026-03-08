@@ -21,6 +21,9 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    - name: Buat Gradle Wrapper secara dinamis
+      run: gradle wrapper
+
     - name: Berikan izin eksekusi untuk gradlew
       run: chmod +x gradlew
 
