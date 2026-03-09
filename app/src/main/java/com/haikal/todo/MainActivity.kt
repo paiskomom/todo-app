@@ -154,7 +154,7 @@ class MainActivity : ComponentActivity() {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = "📱 Ponsel: $deviceInfo", 
+                                        text = "Ponsel: $deviceInfo", 
                                         fontSize = 14.sp, 
                                         color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
                                     )
