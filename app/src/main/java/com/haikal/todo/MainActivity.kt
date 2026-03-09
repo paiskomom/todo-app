@@ -1,5 +1,6 @@
 package com.haikal.todo
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,23 +8,32 @@ import androidx.activity.viewModels
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Brightness4
+import androidx.compose.material.icons.filled.Brightness7
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.haikal.todo.data.Todo
 import com.haikal.todo.ui.TodoTheme
 import com.haikal.todo.viewmodel.TodoViewModel
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private val viewModel: TodoViewModel by viewModels()
@@ -33,11 +43,36 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         setContent {
-            TodoTheme {
+            // STATE UNTUK KUSTOMISASI WARNA (GELAP/TERANG)
+            val systemTheme = isSystemInDarkTheme()
+            var isDarkMode by remember { mutableStateOf(systemTheme) }
+
+            TodoTheme(darkTheme = isDarkMode) {
                 val todos by viewModel.todos.collectAsState()
                 var showDialog by remember { mutableStateOf(false) }
 
-                // Menghitung persentase tugas selesai untuk Progress Bar
+                // STATE UNTUK WAKTU REAL-TIME
+                var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+                
+                // Coroutine untuk membuat jam berdetak setiap 1 detik
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        delay(1000)
+                        currentTime = System.currentTimeMillis()
+                    }
+                }
+
+                // Format Tanggal dan Waktu
+                val dateFormat = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale("id", "ID"))
+                val timeFormat = SimpleDateFormat("HH:mm:ss", Locale("id", "ID"))
+                val dateString = dateFormat.format(Date(currentTime))
+                val timeString = timeFormat.format(Date(currentTime))
+
+                // Mendapatkan Info Ponsel (Merek dan Tipe)
+                val manufacturer = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+                val model = Build.MODEL
+                val deviceInfo = "$manufacturer $model"
+
                 val completedCount = todos.count { it.isDone }
                 val progress by animateFloatAsState(
                     targetValue = if (todos.isEmpty()) 0f else completedCount.toFloat() / todos.size,
@@ -48,14 +83,22 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     topBar = {
                         Column {
-                            CenterAlignedTopAppBar(
+                            TopAppBar(
                                 title = { Text("Daftar Tugas") },
-                                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                                actions = {
+                                    // TOMBOL KUSTOMISASI WARNA (TOGGLE TEMA)
+                                    IconButton(onClick = { isDarkMode = !isDarkMode }) {
+                                        Icon(
+                                            imageVector = if (isDarkMode) Icons.Filled.Brightness7 else Icons.Filled.Brightness4,
+                                            contentDescription = "Ganti Tema"
+                                        )
+                                    }
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
                                     containerColor = MaterialTheme.colorScheme.surface,
                                     titleContentColor = MaterialTheme.colorScheme.onSurface
                                 )
                             )
-                            // FITUR BARU: Progress Bar Indikator Penyelesaian
                             LinearProgressIndicator(
                                 progress = progress,
                                 modifier = Modifier
@@ -68,7 +111,6 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     floatingActionButton = {
-                        // FAB Dibuat Sangat Membulat (24.dp)
                         FloatingActionButton(
                             onClick = { showDialog = true },
                             shape = RoundedCornerShape(24.dp),
@@ -80,19 +122,61 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { paddingValues ->
                     
-                    LazyColumn(
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(todos, key = { it.id }) { todo ->
-                            TodoItemCard(
-                                todo = todo,
-                                onCheckedChange = { viewModel.toggleTodo(todo) },
-                                onDelete = { viewModel.deleteTodo(todo) }
+                        // KARTU DASHBOARD INFORMASI (Waktu & Device)
+                        ElevatedCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer
                             )
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Text(
+                                    text = timeString, 
+                                    fontSize = 36.sp, 
+                                    fontWeight = FontWeight.Bold, 
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = dateString, 
+                                    fontSize = 16.sp, 
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.9f)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "📱 Ponsel: $deviceInfo", 
+                                        fontSize = 14.sp, 
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        }
+
+                        // DAFTAR TUGAS
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(todos, key = { it.id }) { todo ->
+                                TodoItemCard(
+                                    todo = todo,
+                                    onCheckedChange = { viewModel.toggleTodo(todo) },
+                                    onDelete = { viewModel.deleteTodo(todo) }
+                                )
+                            }
+                            item { Spacer(modifier = Modifier.height(80.dp)) } // Jarak untuk FAB
                         }
                     }
 
@@ -111,9 +195,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// ... (Biarkan fungsi TodoItemCard dan AddTodoDialog persis seperti sebelumnya) ...
+
 @Composable
 fun TodoItemCard(todo: Todo, onCheckedChange: () -> Unit, onDelete: () -> Unit) {
-    // ANIMASI WARNA INTERAKTIF: Berubah meredup jika tugas selesai
     val cardColor by animateColorAsState(
         targetValue = if (todo.isDone) 
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
@@ -125,22 +210,17 @@ fun TodoItemCard(todo: Todo, onCheckedChange: () -> Unit, onDelete: () -> Unit) 
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        // BENTUK SERBA ROUNDED: Sudut sangat melengkung (24.dp)
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = cardColor)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(
                 checked = todo.isDone, 
                 onCheckedChange = { onCheckedChange() },
-                colors = CheckboxDefaults.colors(
-                    checkedColor = MaterialTheme.colorScheme.primary
-                )
+                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
             )
             
             Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
@@ -165,7 +245,7 @@ fun TodoItemCard(todo: Todo, onCheckedChange: () -> Unit, onDelete: () -> Unit) 
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Filled.Delete, 
-                    contentDescription = "Hapus Tugas", 
+                    contentDescription = "Hapus", 
                     tint = if (todo.isDone) MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
                            else MaterialTheme.colorScheme.error
                 )
@@ -181,7 +261,6 @@ fun AddTodoDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        // Dialog juga dibuat membulat
         shape = RoundedCornerShape(28.dp),
         title = { Text("Tugas Baru") },
         text = {
@@ -191,7 +270,7 @@ fun AddTodoDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
                     onValueChange = { title = it },
                     label = { Text("Apa yang ingin dikerjakan?") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp), // Input text dibulatkan
+                    shape = RoundedCornerShape(16.dp),
                     singleLine = true
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -200,7 +279,7 @@ fun AddTodoDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
                     onValueChange = { description = it },
                     label = { Text("Detail tambahan (Opsional)") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp) // Input text dibulatkan
+                    shape = RoundedCornerShape(16.dp)
                 )
             }
         },
@@ -208,14 +287,10 @@ fun AddTodoDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
             Button(
                 onClick = { if (title.isNotBlank()) onConfirm(title, description) },
                 shape = RoundedCornerShape(20.dp)
-            ) {
-                Text("Simpan")
-            }
+            ) { Text("Simpan") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Batal")
-            }
+            TextButton(onClick = onDismiss) { Text("Batal") }
         }
     )
 }
